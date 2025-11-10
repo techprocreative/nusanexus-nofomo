@@ -1,0 +1,558 @@
+"""
+NusaNexus NoFOMO - Strategy Manager
+Manages strategy execution, validation, and lifecycle
+"""
+
+import os
+import ast
+import asyncio
+import logging
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+from pathlib import Path
+from enum import Enum
+import redis
+from supabase import create_client, Client
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+
+class StrategyType(Enum):
+    """Strategy types"""
+    BASIC = "basic"
+    ADVANCED = "advanced"
+    AI_GENERATED = "ai_generated"
+    CUSTOM = "custom"
+    SAMPLE = "sample"
+
+
+class StrategyStatus(Enum):
+    """Strategy status"""
+    INACTIVE = "inactive"
+    ACTIVE = "active"
+    TESTING = "testing"
+    ERROR = "error"
+
+
+class StrategyManager:
+    """
+    Strategy Manager for bot runner
+    
+    Responsibilities:
+    - Strategy validation and compilation
+    - Strategy lifecycle management
+    - Custom strategy execution
+    - Strategy parameter optimization
+    - Performance tracking
+    """
+    
+    def __init__(self):
+        self.redis_client = redis.Redis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            decode_responses=True
+        )
+        
+        self.supabase: Client = create_client(
+            os.getenv('SUPABASE_URL'),
+            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        )
+        
+        # Strategy directories
+        self.base_dir = Path(__file__).parent
+        self.strategies_dir = self.base_dir / 'strategies'
+        self.templates_dir = self.base_dir / 'templates'
+        self.backtest_dir = self.base_dir / 'backtest'
+        
+        # Create directories
+        for dir_path in [self.strategies_dir, self.templates_dir, self.backtest_dir]:
+            dir_path.mkdir(exist_ok=True)
+        
+        # Strategy templates
+        self.strategy_templates = {
+            StrategyType.SAMPLE: self._get_sample_strategy_template(),
+            StrategyType.BASIC: self._get_basic_strategy_template(),
+            StrategyType.ADVANCED: self._get_advanced_strategy_template(),
+            StrategyType.AI_GENERATED: self._get_ai_strategy_template(),
+            StrategyType.CUSTOM: self._get_custom_strategy_template()
+        }
+        
+        # Built-in strategies
+        self.builtin_strategies = [
+            "SampleStrategy",
+            "RSIStrategy",
+            "MACDStrategy",
+            "BollingerBandsStrategy",
+            "MovingAverageCrossover",
+            "GridBot",
+            "DCA",
+            "PureTrader"
+        ]
+        
+        logger.info("Strategy Manager initialized")
+    
+    async def validate_strategy(self, strategy_name: str, strategy_code: str = None) -> tuple[bool, list[str]]:
+        """
+        Validate strategy code and configuration
+        
+        Args:
+            strategy_name: Strategy name
+            strategy_code: Strategy code (optional)
+            
+        Returns:
+            Tuple of (is_valid, error_messages)
+        """
+        errors = []
+        
+        try:
+            # Check if strategy is built-in
+            if strategy_name in self.builtin_strategies:
+                return True, []
+            
+            # Get strategy code if not provided
+            if not strategy_code:
+                strategy_code = await self._get_strategy_code(strategy_name)
+            
+            if not strategy_code:
+                errors.append(f"Strategy code not found for {strategy_name}")
+                return False, errors
+            
+            # Parse strategy code
+            try:
+                ast.parse(strategy_code)
+            except SyntaxError as e:
+                errors.append(f"Syntax error: {str(e)}")
+                return False, errors
+            
+            # Check for required classes and methods
+            strategy_info = self._analyze_strategy_structure(strategy_code)
+            
+            if not strategy_info['has_strategy_class']:
+                errors.append("Strategy class not found")
+            
+            if not strategy_info['has_populate_indicators']:
+                errors.append("populate_indicators method not found")
+            
+            if not strategy_info['has_populate_entry_trend']:
+                errors.append("populate_entry_trend method not found")
+            
+            # Check for common issues
+            if strategy_info['uses_forbidden_imports']:
+                errors.append("Strategy uses forbidden imports")
+            
+            if not strategy_info['has_proper_returns']:
+                errors.append("Strategy missing proper return statements")
+            
+            return len(errors) == 0, errors
+            
+        except Exception as e:
+            logger.error(f"Strategy validation failed: {str(e)}")
+            return False, [f"Validation error: {str(e)}"]
+    
+    async def create_strategy(self, strategy_name: str, strategy_type: StrategyType, 
+                             parameters: Dict[str, Any], user_id: str) -> Optional[str]:
+        """
+        Create a new strategy
+        
+        Args:
+            strategy_name: Name of the strategy
+            strategy_type: Type of strategy
+            parameters: Strategy parameters
+            user_id: User identifier
+            
+        Returns:
+            Strategy ID if successful
+        """
+        try:
+            # Generate strategy code from template
+            template = self.strategy_templates.get(strategy_type, self.strategy_templates[StrategyType.SAMPLE])
+            strategy_code = await self._generate_strategy_code(template, strategy_name, parameters)
+            
+            # Validate generated code
+            is_valid, errors = await self.validate_strategy(strategy_name, strategy_code)
+            if not is_valid:
+                logger.error(f"Generated strategy validation failed: {errors}")
+                return None
+            
+            # Save strategy to file
+            strategy_path = self.strategies_dir / f"{strategy_name}.py"
+            with open(strategy_path, 'w') as f:
+                f.write(strategy_code)
+            
+            # Save strategy metadata
+            strategy_metadata = {
+                'name': strategy_name,
+                'type': strategy_type.value,
+                'user_id': user_id,
+                'parameters': parameters,
+                'created_at': datetime.now().isoformat(),
+                'status': StrategyStatus.ACTIVE.value,
+                'code': strategy_code
+            }
+            
+            result = self.supabase.table('strategies').insert(strategy_metadata).execute()
+            
+            if not result.data:
+                return None
+            
+            strategy_id = result.data[0]['id']
+            
+            logger.info(f"Created strategy {strategy_name} with ID {strategy_id}")
+            return strategy_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create strategy {strategy_name}: {str(e)}")
+            return None
+    
+    async def get_strategy(self, strategy_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get strategy information and code
+        
+        Args:
+            strategy_id: Strategy identifier
+            
+        Returns:
+            Strategy information dictionary
+        """
+        try:
+            result = self.supabase.table('strategies').select('*').eq('id', strategy_id).execute()
+            
+            if not result.data:
+                return None
+            
+            strategy_data = result.data[0]
+            
+            # Get strategy code from file if not in database
+            if not strategy_data.get('code'):
+                strategy_data['code'] = await self._get_strategy_code(strategy_data['name'])
+            
+            return strategy_data
+            
+        except Exception as e:
+            logger.error(f"Failed to get strategy {strategy_id}: {str(e)}")
+            return None
+    
+    def _analyze_strategy_structure(self, code: str) -> Dict[str, bool]:
+        """Analyze strategy code structure"""
+        try:
+            tree = ast.parse(code)
+            
+            analysis = {
+                'has_strategy_class': False,
+                'has_populate_indicators': False,
+                'has_populate_entry_trend': False,
+                'has_populate_exit_trend': False,
+                'uses_forbidden_imports': False,
+                'has_proper_returns': False
+            }
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    if 'Strategy' in node.name:
+                        analysis['has_strategy_class'] = True
+                        
+                        for item in node.body:
+                            if isinstance(item, ast.FunctionDef):
+                                if item.name == 'populate_indicators':
+                                    analysis['has_populate_indicators'] = True
+                                elif item.name == 'populate_entry_trend':
+                                    analysis['has_populate_entry_trend'] = True
+                                elif item.name == 'populate_exit_trend':
+                                    analysis['has_populate_exit_trend'] = True
+                
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name in ['os', 'sys', 'subprocess', 'requests', 'urllib']:
+                            analysis['uses_forbidden_imports'] = True
+                            break
+            
+            # Check for return statements
+            analysis['has_proper_returns'] = (
+                analysis['has_populate_indicators'] or 
+                analysis['has_populate_entry_trend'] or 
+                analysis['has_populate_exit_trend']
+            )
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Strategy analysis failed: {str(e)}")
+            return {'has_strategy_class': False, 'has_populate_indicators': False, 'has_populate_entry_trend': False, 'has_populate_exit_trend': False, 'uses_forbidden_imports': False, 'has_proper_returns': False}
+    
+    async def _get_strategy_code(self, strategy_name: str) -> Optional[str]:
+        """Get strategy code from file"""
+        try:
+            strategy_path = self.strategies_dir / f"{strategy_name}.py"
+            if not strategy_path.exists():
+                return None
+            
+            with open(strategy_path, 'r') as f:
+                return f.read()
+                
+        except Exception as e:
+            logger.error(f"Failed to get strategy code: {str(e)}")
+            return None
+    
+    async def _generate_strategy_code(self, template: str, strategy_name: str, parameters: Dict[str, Any]) -> str:
+        """Generate strategy code from template"""
+        try:
+            # Simple template substitution
+            code = template
+            code = code.replace('{{STRATEGY_NAME}}', strategy_name)
+            
+            # Add parameters
+            for key, value in parameters.items():
+                code = code.replace(f'{{{{PARAM_{key.upper()}}}}}', str(value))
+            
+            return code
+            
+        except Exception as e:
+            logger.error(f"Failed to generate strategy code: {str(e)}")
+            return template
+    
+    def _get_sample_strategy_template(self) -> str:
+        """Get sample strategy template"""
+        return '''# {{STRATEGY_NAME}} - Generated NusaNexus Strategy
+from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import merge_informative_pair
+from freqtrade.strategy.experimental import IStrategy
+from pandas import DataFrame
+import numpy as np
+
+class {{STRATEGY_NAME}}(IStrategy):
+    """
+    {{STRATEGY_NAME}} strategy for NusaNexus NoFOMO
+    """
+    
+    # Strategy interface version
+    INTERFACE_VERSION = 3
+    
+    # Minimal stake amount
+    min_stake_amount = 10
+    
+    # Default timeframe
+    timeframe = "1h"
+    
+    # Exit signals
+    use_exit_signal = True
+    exit_profit_only = False
+    ignore_exit_signal = False
+    
+    # Entry signals
+    use_entry_signal = True
+    
+    # Hyperopt parameters
+    buy_rsi = {{PARAM_BUY_RSI or 30}}
+    sell_rsi = {{PARAM_SELL_RSI or 70}}
+    buy_sma_period = {{PARAM_BUY_SMA or 20}}
+    sell_sma_period = {{PARAM_SELL_SMA or 50}}
+    
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Add indicators to the given DataFrame
+        """
+        
+        # RSI
+        dataframe['rsi'] = (
+            dataframe['close']
+            .rolling(length=14)
+            .apply(lambda x: x.ewm(alpha=1/14).mean())
+        )
+        
+        # SMA indicators
+        dataframe['sma_short'] = dataframe['close'].rolling(self.buy_sma_period).mean()
+        dataframe['sma_long'] = dataframe['close'].rolling(self.sell_sma_period).mean()
+        
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populate entry signals for the strategy
+        """
+        
+        # Long signals
+        dataframe.loc[
+            (
+                (dataframe['rsi'] < self.buy_rsi) &
+                (dataframe['sma_short'] > dataframe['sma_long']) &
+                (dataframe['volume'] > 0)
+            ),
+            'enter_long'
+        ] = 1
+        
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populate exit signals for the strategy
+        """
+        
+        # Exit signals
+        dataframe.loc[
+            (
+                (dataframe['rsi'] > self.sell_rsi) |
+                (dataframe['sma_short'] < dataframe['sma_long'])
+            ),
+            'exit_long'
+        ] = 1
+        
+        return dataframe
+'''
+    
+    def _get_basic_strategy_template(self) -> str:
+        """Get basic strategy template"""
+        return self._get_sample_strategy_template()
+    
+    def _get_advanced_strategy_template(self) -> str:
+        """Get advanced strategy template"""
+        return '''# {{STRATEGY_NAME}} - Advanced Strategy Template
+from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import merge_informative_pair
+from freqtrade.strategy.experimental import IStrategy
+from pandas import DataFrame
+import numpy as np
+
+class {{STRATEGY_NAME}}(IStrategy):
+    """
+    Advanced {{STRATEGY_NAME}} strategy
+    """
+    
+    INTERFACE_VERSION = 3
+    min_stake_amount = 10
+    timeframe = "1h"
+    
+    use_exit_signal = True
+    exit_profit_only = False
+    ignore_exit_signal = False
+    use_entry_signal = True
+    
+    # Advanced parameters
+    buy_rsi = {{PARAM_BUY_RSI or 25}}
+    sell_rsi = {{PARAM_SELL_RSI or 75}}
+    buy_rsi_enabled = True
+    sell_rsi_enabled = True
+    
+    # MACD parameters
+    macd_fast = {{PARAM_MACD_FAST or 12}}
+    macd_slow = {{PARAM_MACD_SLOW or 26}}
+    macd_signal = {{PARAM_MACD_SIGNAL or 9}}
+    
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Add multiple indicators for advanced analysis
+        """
+        
+        # RSI
+        dataframe['rsi'] = (
+            dataframe['close']
+            .rolling(length=14)
+            .apply(lambda x: x.ewm(alpha=1/14).mean())
+        )
+        
+        # MACD
+        exp1 = dataframe['close'].ewm(span=self.macd_fast).mean()
+        exp2 = dataframe['close'].ewm(span=self.macd_slow).mean()
+        dataframe['macd'] = exp1 - exp2
+        dataframe['macd_signal'] = dataframe['macd'].ewm(span=self.macd_signal).mean()
+        dataframe['macd_histogram'] = dataframe['macd'] - dataframe['macd_signal']
+        
+        # Bollinger Bands
+        dataframe['bb_middle'] = dataframe['close'].rolling(20).mean()
+        dataframe['bb_upper'] = dataframe['bb_middle'] + (dataframe['close'].rolling(20).std() * 2)
+        dataframe['bb_lower'] = dataframe['bb_middle'] - (dataframe['close'].rolling(20).std() * 2)
+        
+        # Volume analysis
+        dataframe['volume_sma'] = dataframe['volume'].rolling(20).mean()
+        
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Advanced entry signals
+        """
+        
+        # Multi-condition entry
+        dataframe.loc[
+            (
+                (dataframe['rsi'] < self.buy_rsi) &
+                (dataframe['macd'] > dataframe['macd_signal']) &
+                (dataframe['close'] < dataframe['bb_lower']) &
+                (dataframe['volume'] > dataframe['volume_sma'])
+            ),
+            'enter_long'
+        ] = 1
+        
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Advanced exit signals
+        """
+        
+        dataframe.loc[
+            (
+                (dataframe['rsi'] > self.sell_rsi) |
+                (dataframe['macd'] < dataframe['macd_signal']) |
+                (dataframe['close'] > dataframe['bb_upper'])
+            ),
+            'exit_long'
+        ] = 1
+        
+        return dataframe
+'''
+    
+    def _get_ai_strategy_template(self) -> str:
+        """Get AI-generated strategy template"""
+        return self._get_advanced_strategy_template()
+    
+    def _get_custom_strategy_template(self) -> str:
+        """Get custom strategy template"""
+        return '''# {{STRATEGY_NAME}} - Custom Strategy
+from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy.experimental import IStrategy
+from pandas import DataFrame
+
+class {{STRATEGY_NAME}}(IStrategy):
+    """
+    Custom {{STRATEGY_NAME}} strategy
+    """
+    
+    INTERFACE_VERSION = 3
+    min_stake_amount = 10
+    timeframe = "1h"
+    
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Add your custom indicators here
+        """
+        # TODO: Add your custom indicators
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Define your custom entry logic
+        """
+        # TODO: Add your custom entry signals
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Define your custom exit logic
+        """
+        # TODO: Add your custom exit signals
+        return dataframe
+'''
+
+
+if __name__ == "__main__":
+    # Test strategy manager
+    async def test():
+        manager = StrategyManager()
+        
+        # Test strategy validation
+        is_valid, errors = await manager.validate_strategy("SampleStrategy")
+        print(f"Strategy validation: {is_valid}, errors: {errors}")
+    
+    import asyncio
+    asyncio.run(test())
