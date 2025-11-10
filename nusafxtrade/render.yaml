@@ -1,0 +1,160 @@
+# NusaNexus NoFOMO - Render Deployment Configuration
+# This configuration deploys the complete platform to Render.com
+
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: nusafx-database
+    plan: starter
+    runtime: python
+    envVars:
+      - key: POSTGRES_DB
+        value: nusafxtrade
+      - key: POSTGRES_USER
+        value: nusafx_user
+      - key: POSTGRES_PASSWORD
+        value: '${POSTGRES_PASSWORD}'
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: nusafx-database
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: nusafx-database
+          property: port
+
+  # Redis Cache
+  - type: pserv
+    name: nusafx-redis
+    plan: starter
+    runtime: python
+
+  # Backend API Service
+  - type: web
+    name: nusafx-backend
+    runtime: python
+    plan: starter
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_NAME
+        value: NusaNexus NoFOMO Backend
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        value: '${SECRET_KEY}'
+      - key: ALLOWED_ORIGINS
+        value: '${ALLOWED_ORIGINS}'
+      - key: ALLOWED_HOSTS
+        value: '${ALLOWED_HOSTS}'
+      - key: DATABASE_URL
+        value: postgresql://nusafx_user:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/nusafxtrade
+      - key: REDIS_URL
+        fromService:
+          type: pserv
+          name: nusafx-redis
+          property: connectionString
+      - key: SUPABASE_URL
+        value: '${SUPABASE_URL}'
+      - key: SUPABASE_KEY
+        value: '${SUPABASE_KEY}'
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: '${SUPABASE_SERVICE_ROLE_KEY}'
+      - key: OPENROUTER_API_KEY
+        value: '${OPENROUTER_API_KEY}'
+      - key: OPENROUTER_BASE_URL
+        value: 'https://openrouter.ai/api/v1'
+      - key: BINANCE_API_URL
+        value: 'https://api.binance.com'
+      - key: BYBIT_API_URL
+        value: 'https://api.bybit.com'
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SENTRY_DSN
+        value: '${SENTRY_DSN}'
+    healthCheckPath: /health
+
+  # Frontend Web Service
+  - type: web
+    name: nusafx-frontend
+    runtime: node
+    plan: starter
+    buildCommand: cd frontend && npm ci && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: '${SUPABASE_URL}'
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: '${SUPABASE_KEY}'
+      - key: NEXT_PUBLIC_API_URL
+        value: 'https://nusafx-backend.onrender.com/api/v1'
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /
+
+  # AI Engine Worker
+  - type: worker
+    name: nusafx-ai-engine
+    runtime: python
+    plan: starter
+    buildCommand: cd ai_engine && pip install -r requirements.txt
+    startCommand: cd ai_engine && python ai_engine_core.py
+    envVars:
+      - key: OPENROUTER_API_KEY
+        value: '${OPENROUTER_API_KEY}'
+      - key: OPENROUTER_BASE_URL
+        value: 'https://openrouter.ai/api/v1'
+      - key: OPENROUTER_MODEL
+        value: 'anthropic/claude-3-sonnet'
+      - key: SUPABASE_URL
+        value: '${SUPABASE_URL}'
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: '${SUPABASE_SERVICE_ROLE_KEY}'
+      - key: REDIS_URL
+        fromService:
+          type: pserv
+          name: nusafx-redis
+          property: connectionString
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Bot Runner Worker
+  - type: worker
+    name: nusafx-bot-runner
+    runtime: python
+    plan: starter
+    buildCommand: cd bot-runner && pip install -r requirements.txt
+    startCommand: cd bot-runner && python worker.py
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: pserv
+          name: nusafx-redis
+          property: connectionString
+      - key: SUPABASE_URL
+        value: '${SUPABASE_URL}'
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: '${SUPABASE_SERVICE_ROLE_KEY}'
+      - key: BINANCE_API_URL
+        value: 'https://api.binance.com'
+      - key: BYBIT_API_URL
+        value: 'https://api.bybit.com'
+      - key: LOG_LEVEL
+        value: INFO
+
+# IMPORTANT: Configure these environment variables in Render Dashboard:
+#
+# Required Secrets (Add in Render Environment):
+# - SECRET_KEY: Generate with: openssl rand -base64 32
+# - SUPABASE_URL: From your Supabase project settings
+# - SUPABASE_KEY: Supabase anon/public key
+# - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key (keep secure!)
+# - OPENROUTER_API_KEY: From OpenRouter.ai dashboard
+#
+# Optional Configuration:
+# - ALLOWED_ORIGINS: Comma-separated list (e.g., "https://frontend.onrender.com,https://yourdomain.com")
+# - ALLOWED_HOSTS: Comma-separated list (e.g., "*.onrender.com,*.yourdomain.com")
+# - SENTRY_DSN: For error monitoring (optional)
+# - POSTGRES_PASSWORD: If using managed PostgreSQL (not needed for Supabase)
+#
+# Note: Database is managed by Supabase, Redis is managed by Render

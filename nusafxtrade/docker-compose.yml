@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Supabase Local)
+  db:
+    image: supabase/postgres:latest
+    container_name: nusafx-db
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: your_super_secret_and_long_postgres_password
+      POSTGRES_DB: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for job queues
+  redis:
+    image: redis:7-alpine
+    container_name: nusafx-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nusafx-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:your_super_secret_and_long_postgres_password@db:5432/postgres
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=http://localhost:54321
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      - SECRET_KEY=your-secret-key
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - bot_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nusafx-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # Bot Runner Worker
+  bot-runner:
+    build:
+      context: ./bot-runner
+      dockerfile: Dockerfile
+    container_name: nusafx-bot-runner
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=http://localhost:54321
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./bot-runner:/app
+      - bot_data:/app/data
+    command: python -c "import time; time.sleep(30); print('Bot runner ready')"
+
+  # AI Engine Worker
+  ai-engine:
+    build:
+      context: ./ai_engine
+      dockerfile: Dockerfile
+    container_name: nusafx-ai-engine
+    environment:
+      - OPENROUTER_API_KEY=your-openrouter-api-key
+      - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+      - SUPABASE_URL=http://localhost:54321
+    volumes:
+      - ./ai_engine:/app
+    command: python -c "import time; time.sleep(30); print('AI engine ready')"
+
+  # Supabase API Gateway (optional for local development)
+  supabase:
+    image: supabase/supabase:latest
+    container_name: nusafx-supabase
+    ports:
+      - "54321:54321"
+    environment:
+      - POSTGRES_PASSWORD=your_super_secret_and_long_postgres_password
+      - JWT_SECRET=your-super-secret-jwt-token-with-at-least-32-characters-long
+      - ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  redis_data:
+  bot_data:
+
+networks:
+  default:
+    name: nusafx-network

@@ -1,0 +1,202 @@
+# NusaNexus NoFOMO - AI Generated Strategy
+# Generated on {{ generated_at }}
+# Prompt: {{ prompt }}
+
+from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import merge_informative_pair
+from freqtrade.exchange import timeframe_to_seconds
+from freqtrade.strategy import CategoricalParameter, DecimalParameter, IntParameter
+
+import pandas as pd
+import numpy as np
+import ta
+from functools import reduce
+
+class {{ class_name }}(IStrategy):
+    """
+    {{ description }}
+    
+    AI-Generated Strategy for {{ trading_pair }}
+    Risk Level: {{ risk_level }}
+    Timeframe: {{ timeframe }}
+    
+    Strategy Parameters:
+    {% for param, config in parameters.items() -%}
+    - {{ param }}: {{ config.get('description', 'Strategy parameter') }} (default: {{ config.get('default', 'N/A') }})
+    {% endfor -%}
+    """
+    
+    # Strategy metadata
+    INTERFACE_VERSION = 3
+    
+    # ROI table - AI optimized
+    minimal_roi = {
+        "0": 0.10,
+        "20": 0.05,
+        "40": 0.03,
+        "60": 0.02,
+        "120": 0.01,
+        "180": 0,
+        "240": -0.01,
+        "300": -0.02,
+        "360": -0.03,
+        "420": -0.05,
+        "480": -0.10,
+        "540": -0.15
+    }
+    
+    # Stoploss - Risk adaptive
+    stoploss = {{ stop_loss|default(-0.02) }}
+    
+    # Trailing stop
+    trailing_stop = {{ trailing_stop|default(True) }}
+    trailing_stop_positive = {{ trailing_positive|default(0.01) }}
+    trailing_stop_positive_offset = {{ trailing_offset|default(0.02) }}
+    trailing_only_offset_is_reached = {{ trailing_only|default(True) }}
+    
+    # Timeframe
+    timeframe = "{{ timeframe }}"
+    timeframe_min = timeframe_to_seconds(timeframe)
+    
+    # Process only the last 200 candles
+    process_only_new_candles = True
+    startup_candle_count = {{ startup_candles|default(200) }}
+    
+    # Informative pairs
+    informative_pairs = [
+        # Add informative pairs based on strategy needs
+    ]
+    
+    # Multi-pair strategy
+    can_short = {{ can_short|default(False) }}
+    
+    {% if parameters %}
+    # AI-Generated Strategy Parameters
+    {% for param, config in parameters.items() -%}
+    {{ param }} = {{ config.get('param_class', 'IntParameter') }}(
+        {% if config.get('default') is not none -%}
+        default={{ config.get('default') }},
+        {%- endif -%}
+        {% if config.get('low') is not none -%}
+        low={{ config.get('low') }},
+        {%- endif -%}
+        {% if config.get('high') is not none -%}
+        high={{ config.get('high') }},
+        {%- endif -%}
+        {% if config.get('step') is not none -%}
+        step={{ config.get('step') }},
+        {%- endif -%}
+        {% if config.get('space') -%}
+        space="{{ config.get('space') }}",
+        {%- endif -%}
+        {% if config.get('category') -%}
+        category="{{ config.get('category') }}",
+        {%- endif -%}
+        optimize=True
+    )
+    {% endfor -%}
+    {% endif %}
+    
+    def informative_pairs(self):
+        """
+        Define additional informative pairs
+        """
+        return self.informative_pairs
+    
+    def populate_indicators(self, dataframe, metadata):
+        """
+        Populate indicators for the strategy
+        {% for indicator in indicators %}
+        # {{ indicator.name }}
+        {{ indicator.code }}
+        {% endfor %}
+        """
+        
+        {% for indicator in indicators %}
+        try:
+            {{ indicator.code }}
+        except Exception as e:
+            logger.warning(f"Failed to calculate {{ indicator.name }}: {e}")
+        {% endfor %}
+        
+        return dataframe
+    
+    def populate_buy_trend(self, dataframe, metadata):
+        """
+        Define buy conditions
+        """
+        dataframe.loc[
+            ({% for condition in buy_conditions -%}
+            ({{ condition }}){% if not loop.last %} & {% endif -%}
+            {% endfor %}),
+            'buy'
+        ] = 1
+        
+        return dataframe
+    
+    def populate_sell_trend(self, dataframe, metadata):
+        """
+        Define sell conditions
+        """
+        dataframe.loc[
+            ({% for condition in sell_conditions -%}
+            ({{ condition }}){% if not loop.last %} & {% endif -%}
+            {% endfor %}),
+            'sell'
+        ] = 1
+        
+        return dataframe
+    
+    def check_buy_timeout(self, pair, trade, **kwargs) -> bool:
+        """
+        Timeout buy orders
+        """
+        return False
+    
+    def check_sell_timeout(self, pair, trade, **kwargs) -> bool:
+        """
+        Timeout sell orders
+        """
+        return False
+    
+    def bot_start(self, **kwargs) -> None:
+        """
+        Strategy initialization
+        """
+        logger.info(f"Starting {{ class_name }} strategy")
+        logger.info(f"Trading pair: {{ trading_pair }}")
+        logger.info(f"Risk level: {{ risk_level }}")
+    
+    def bot_loop_start(self, **kwargs) -> None:
+        """
+        Called at the start of every iteration
+        """
+        pass
+    
+    def custom_stake_amount(
+        self, pair: str, current_time: datetime, current_rate: float,
+        proposed_stake: float, min_stake: float, max_stake: float,
+        **kwargs
+    ) -> float:
+        """
+        Custom stake amount calculation
+        """
+        return proposed_stake
+    
+    def confirm_trade_entry(
+        self, pair: str, order_type: str, amount: float, rate: float,
+        time_in_force: str, current_time: datetime, **kwargs
+    ) -> bool:
+        """
+        Confirm trade entry
+        """
+        return True
+    
+    def confirm_trade_exit(
+        self, pair: str, trade, order_type: str, amount: float,
+        rate: float, time_in_force: str, exit_reason: str, **kwargs
+    ) -> bool:
+        """
+        Confirm trade exit
+        """
+        return True

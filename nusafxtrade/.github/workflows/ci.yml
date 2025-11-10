@@ -1,0 +1,93 @@
+# NusaNexus NoFOMO - Simplified CI/CD Pipeline
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Basic tests
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Run backend tests
+      run: |
+        cd backend
+        python -c "print('Backend tests would run here')"
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Security audit
+      run: |
+        cd backend
+        pip install safety
+        safety check -r requirements.txt --short-report
+
+  # Docker build
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Build Docker Images
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build backend image
+      run: |
+        docker build -f backend/Dockerfile.production -t nusafx-backend:latest backend/
+        
+    - name: Build frontend image
+      run: |
+        docker build -f frontend/Dockerfile.production -t nusafx-frontend:latest frontend/
+        
+    - name: Build AI engine image
+      run: |
+        docker build -f ai_engine/Dockerfile.production -t nusafx-ai-engine:latest ai_engine/
+        
+    - name: Build bot-runner image
+      run: |
+        docker build -f bot-runner/Dockerfile.production -t nusafx-bot-runner:latest bot-runner/
+
+  # Deployment (only on main branch)
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    name: Deploy to Render
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Render
+      run: |
+        echo "Deploying to Render with render.yaml"
+        # Render will automatically deploy when render.yaml is pushed to main

@@ -1,0 +1,106 @@
+# NusaNexus NoFOMO - Bot Runner System
+
+## Overview
+
+The NusaNexus NoFOMO Bot Runner is a comprehensive, production-ready system for managing Freqtrade-based trading bots in isolated environments. It provides a complete architecture with advanced features for bot lifecycle management, real-time monitoring, and secure execution.
+
+## Architecture
+
+### Core Components
+
+#### 1. **BotManager** (`manager.py`)
+- **Purpose**: Main orchestrator for bot lifecycle management
+- **Features**:
+  - Bot start/stop/pause/resume operations
+  - Process management and monitoring
+  - Health monitoring and alerts
+  - Resource allocation and cleanup
+  - Integration with Redis queues and Supabase
+  - WebSocket real-time updates
+
+#### 2. **ConfigManager** (`config.py`)
+- **Purpose**: Manages bot configurations and Freqtrade config generation
+- **Features**:
+  - Dynamic Freqtrade configuration generation
+  - Encrypted exchange credentials handling
+  - Configuration validation and templates
+  - Bot configuration caching
+  - Import/export functionality
+
+#### 3. **BotLogger** (`logger.py`)
+- **Purpose**: Comprehensive logging system for bot operations
+- **Features**:
+  - Structured JSON logging
+  - Multiple log sinks (file, database, Redis)
+  - Real-time log streaming
+  - Performance metrics logging
+  - Trade execution tracking
+  - Log rotation and archiving
+
+#### 4. **ExchangeHandler** (`exchange.py`)
+- **Purpose**: Manages exchange API integrations and authentication
+- **Features**:
+  - Multi-exchange support (Binance, Bybit, KuCoin, OKX, Coinbase)
+  - Exchange API authentication and validation
+  - Market data retrieval
+  - Order placement and management
+  - Rate limiting and connection pooling
+  - Real-time balance and position monitoring
+
+#### 5. **StrategyManager** (`strategy.py`)
+- **Purpose**: Handles strategy execution, validation, and lifecycle
+- **Features**:
+  - Strategy validation and compilation
+  - Custom strategy execution
+  - Strategy parameter optimization
+  - Backtesting integration
+  - Built-in strategy templates
+  - Performance tracking
+
+#### 6. **JobWorker** (`worker.py`)
+- **Purpose**: Background job processing and Redis queue management
+- **Features**:
+  - Redis queue management
+  - Job execution and monitoring
+  - Error handling and retry logic
+  - Job scheduling and batching
+  - Priority-based job processing
+  - Resource management
+
+## Key Features
+
+### 🔐 Security & Isolation
+- **Sandboxed Strategy Execution**: Each bot runs in an isolated environment
+- **Encrypted API Credentials**: Secure storage and retrieval of exchange API keys
+- **Resource Limits**: CPU, memory, and disk usage restrictions
+- **Audit Logging**: Complete audit trail of all operations
+
+### 📊 Real-time Monitoring
+- **Live Status Updates**: WebSocket-based real-time bot status
+- **Performance Metrics**: Real-time trading performance tracking
+- **Health Monitoring**: System health checks and alerts
+- **Resource Monitoring**: CPU, memory, and disk usage tracking
+
+### 🛠️ Process Management
+- **Multi-bot Support**: Manage multiple bots simultaneously
+- **Process Isolation**: Each bot runs in separate process
+- **Graceful Shutdown**: Clean bot termination and resource cleanup
+- **Auto-recovery**: Automatic recovery from failures
+
+## Usage
+
+### Starting the Bot Runner
+```bash
+# Start the bot runner service
+python bot_runner.py start
+
+# Check health status
+python bot_runner.py health
+
+# Get system status
+python bot_runner.py status
+```
+
+## Documentation
+
+For complete documentation, API endpoints, and troubleshooting guides, see the full documentation in the system.
