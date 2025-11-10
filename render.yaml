@@ -2,18 +2,11 @@
 # This configuration deploys the complete platform to Render.com
 
 services:
-  # Redis Cache
-  - type: redis
-    name: nusafx-redis
-    plan: starter
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
-
   # Backend API Service
   - type: web
     name: nusafx-backend
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -30,10 +23,7 @@ services:
       - key: DATABASE_URL
         value: postgresql://nusafx_user:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/nusafxtrade
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: nusafx-redis
-          property: connectionString
+        value: '${REDIS_URL}'
       - key: SUPABASE_URL
         value: '${SUPABASE_URL}'
       - key: SUPABASE_KEY
@@ -58,7 +48,7 @@ services:
   - type: web
     name: nusafx-frontend
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: cd frontend && npm ci && npm run build
     startCommand: cd frontend && npm start
     envVars:
@@ -76,7 +66,7 @@ services:
   - type: worker
     name: nusafx-ai-engine
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: cd ai_engine && pip install -r requirements.txt
     startCommand: cd ai_engine && python ai_engine_core.py
     envVars:
@@ -91,10 +81,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         value: '${SUPABASE_SERVICE_ROLE_KEY}'
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: nusafx-redis
-          property: connectionString
+        value: '${REDIS_URL}'
       - key: LOG_LEVEL
         value: INFO
 
@@ -102,15 +89,12 @@ services:
   - type: worker
     name: nusafx-bot-runner
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: cd bot-runner && pip install -r requirements.txt
     startCommand: cd bot-runner && python worker.py
     envVars:
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: nusafx-redis
-          property: connectionString
+        value: '${REDIS_URL}'
       - key: SUPABASE_URL
         value: '${SUPABASE_URL}'
       - key: SUPABASE_SERVICE_ROLE_KEY
@@ -130,6 +114,9 @@ services:
 # - SUPABASE_KEY: Supabase anon/public key
 # - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key (keep secure!)
 # - OPENROUTER_API_KEY: From OpenRouter.ai dashboard
+# - REDIS_URL: From Upstash Redis (FREE TIER AVAILABLE!)
+#   Get free Redis at: https://console.upstash.com/
+#   Format: rediss://default:PASSWORD@HOST:PORT
 #
 # Optional Configuration:
 # - ALLOWED_ORIGINS: Comma-separated list (e.g., "https://frontend.onrender.com,https://yourdomain.com")
@@ -137,4 +124,9 @@ services:
 # - SENTRY_DSN: For error monitoring (optional)
 # - POSTGRES_PASSWORD: If using managed PostgreSQL (not needed for Supabase)
 #
-# Note: Database is managed by Supabase, Redis is managed by Render
+# FREE TIER NOTES:
+# - All services use FREE tier and will spin down after 15 minutes of inactivity
+# - First request after spin down takes ~30-50 seconds to wake up
+# - Database: Supabase (free tier)
+# - Redis: Upstash (free tier - 10,000 commands/day)
+# - For production use, upgrade to Starter plans ($7/month per service)

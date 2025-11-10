@@ -1,5 +1,19 @@
 # NusaNexus NoFOMO - Render Deployment Guide
 
+## 🎉 100% FREE Tier Deployment Available!
+
+This guide uses **completely FREE services** for MVP deployment:
+- ✅ Render.com (Free Web Services & Workers)
+- ✅ Upstash Redis (Free 10K commands/day)
+- ✅ Supabase (Free PostgreSQL database)
+- 💳 OpenRouter AI (Pay-per-use, ~$5 can last months for testing)
+
+**Total Infrastructure Cost: $0/month!** Perfect for MVP, testing, and small-scale deployments.
+
+**Note:** Free tier services spin down after 15 minutes of inactivity (~30-50s to wake up). Upgrade to paid tier for production use.
+
+---
+
 ## 🚀 Quick Start Deployment
 
 ### Prerequisites
@@ -14,7 +28,12 @@
    - Add credits to your account
    - Generate API key
 
-3. **Render Account** (FREE tier available)
+3. **Upstash Redis** (FREE tier available)
+   - Sign up at https://console.upstash.com
+   - Create a new Redis database
+   - Copy the connection URL
+
+4. **Render Account** (FREE tier available)
    - Sign up at https://render.com
    - Connect your GitHub account
 
@@ -47,7 +66,26 @@
 3. Add credits to your account (minimum $5 recommended)
 4. Copy the API key (starts with `sk-or-...`)
 
-### Step 3: Generate Secret Key
+### Step 3: Setup Upstash Redis (FREE)
+
+1. Go to https://console.upstash.com
+2. Sign up or login with GitHub/Google
+3. Click **Create Database**
+4. Configure:
+   - Name: `nusafx-redis`
+   - Type: **Regional** (free tier)
+   - Region: Choose closest to your Render region (e.g., US East)
+   - Enable **TLS/SSL** (recommended)
+5. Click **Create**
+6. Copy the **Redis URL** (format: `rediss://default:xxxxx@region.upstash.io:6379`)
+7. Save this URL - you'll need it for Render environment variables
+
+**Free Tier Limits:**
+- 10,000 commands per day
+- 256 MB max data size
+- More than enough for MVP/testing!
+
+### Step 4: Generate Secret Key
 
 Run this command in your terminal:
 
@@ -57,7 +95,7 @@ openssl rand -base64 32
 
 Copy the output - this will be your `SECRET_KEY`.
 
-### Step 4: Deploy to Render
+### Step 5: Deploy to Render
 
 #### Option A: Blueprint Deployment (Recommended)
 
@@ -86,15 +124,12 @@ Copy the output - this will be your `SECRET_KEY`.
 5. Build Command: `cd frontend && npm ci && npm run build`
 6. Start Command: `cd frontend && npm start`
 
-**Redis Service:**
-1. New → Redis
-2. Name: `nusafx-redis`
-3. Plan: Free (Starter)
-
 **Workers (Optional for MVP):**
 - Can be added later for bot execution and AI features
 
-### Step 5: Configure Environment Variables
+**Note:** Redis is now external via Upstash (no need to deploy on Render)
+
+### Step 6: Configure Environment Variables
 
 For **Backend Service** (nusafx-backend), add these environment variables:
 
@@ -105,6 +140,7 @@ SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_KEY=<your-supabase-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 OPENROUTER_API_KEY=<your-openrouter-api-key>
+REDIS_URL=<your-upstash-redis-url>  # Format: rediss://default:xxxxx@region.upstash.io:6379
 
 # CORS Configuration (Update after frontend deployed)
 ALLOWED_ORIGINS=https://nusafx-frontend.onrender.com,http://localhost:3000
@@ -135,13 +171,15 @@ For **Worker Services** (if deployed), add these:
 OPENROUTER_API_KEY=<your-openrouter-api-key>
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
+REDIS_URL=<your-upstash-redis-url>
 
 # Bot Runner Worker
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
+REDIS_URL=<your-upstash-redis-url>
 ```
 
-### Step 6: Update CORS After Deployment
+### Step 7: Update CORS After Deployment
 
 1. After both services are deployed, note the URLs:
    - Backend: `https://nusafx-backend.onrender.com`
@@ -154,7 +192,7 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 
 3. Redeploy backend service
 
-### Step 7: Test Deployment
+### Step 8: Test Deployment
 
 1. Visit your frontend URL: `https://nusafx-frontend.onrender.com`
 2. Try to register a new account
@@ -205,22 +243,33 @@ SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 
 ## 💰 Cost Estimate (Monthly)
 
-### Render (Free Tier)
-- 1x Web Service (Backend): **FREE** (750hrs/month)
-- 1x Web Service (Frontend): **FREE** (750hrs/month)
-- 1x Redis: **FREE** (25MB)
-- **Total: $0/month** (with limitations)
+### 100% FREE Tier Configuration ✨
+- **Render Services:**
+  - Backend Web Service: **FREE** (750hrs/month, spins down after 15min idle)
+  - Frontend Web Service: **FREE** (750hrs/month, spins down after 15min idle)
+  - AI Engine Worker: **FREE** (can be deployed when needed)
+  - Bot Runner Worker: **FREE** (can be deployed when needed)
+- **Upstash Redis:** **FREE** (10,000 commands/day, 256MB storage)
+- **Supabase Database:** **FREE** (500MB database, 2GB bandwidth, 50K monthly active users)
+- **OpenRouter AI:** **Pay-as-you-go** (~$0.01-0.10 per AI request)
 
-### Render (Paid - Recommended for Production)
-- 2x Starter Web Services: **$14/month** ($7 each)
-- 1x Redis Starter: **$10/month**
-- **Total: ~$24/month**
+**Total Infrastructure Cost: $0/month** (only pay for AI API usage!)
 
-### Other Services
-- Supabase: **FREE** (up to 500MB database, 2GB bandwidth)
-- OpenRouter: **Pay-as-you-go** (~$0.01-0.10 per request)
+### Free Tier Limitations:
+- Services spin down after 15 minutes of inactivity
+- ~30-50 seconds cold start time after spin down
+- Upstash Redis: 10K commands/day limit
+- Render: 750 hours/month per service (enough for always-on with limitations)
 
-**MVP Total: $0-24/month** (excluding AI API costs)
+### Paid Tier (Recommended for Production)
+- **Render Services:**
+  - 2x Starter Web Services: **$14/month** ($7 each, no spin down)
+  - 2x Starter Workers: **$14/month** ($7 each, continuous execution)
+- **Upstash Redis Pro:** **$10/month** (100K commands/day, 1GB storage)
+- **Supabase Pro:** **$25/month** (8GB database, 250GB bandwidth)
+- **Total: ~$63/month** (much more reliable, no cold starts)
+
+**MVP Recommendation: Start FREE, upgrade when you have real users!**
 
 ---
 
@@ -287,5 +336,5 @@ If you encounter issues:
 
 ---
 
-**Last Updated:** 2025-01-10
-**Version:** 1.0.0 (MVP)
+**Last Updated:** 2025-11-10
+**Version:** 1.1.0 (MVP - FREE Tier Optimized)
