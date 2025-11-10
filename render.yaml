@@ -9,6 +9,7 @@ services:
     plan: free
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    pythonVersion: "3.11"
     envVars:
       - key: APP_NAME
         value: NusaNexus NoFOMO Backend
@@ -72,6 +73,7 @@ services:
   #   name: nusafx-ai-engine
   #   runtime: python
   #   plan: starter  # Minimum plan required for workers
+  #   pythonVersion: "3.11"
   #   buildCommand: cd ai_engine && pip install -r requirements.txt
   #   startCommand: cd ai_engine && python ai_engine_core.py
   #   envVars:
@@ -95,6 +97,7 @@ services:
   #   name: nusafx-bot-runner
   #   runtime: python
   #   plan: starter  # Minimum plan required for workers
+  #   pythonVersion: "3.11"
   #   buildCommand: cd bot-runner && pip install -r requirements.txt
   #   startCommand: cd bot-runner && python worker.py
   #   envVars:
@@ -140,5 +143,9 @@ services:
 # - MVP can function with just Backend + Frontend for testing/demo
 # - To enable workers: Uncomment them above and deploy manually as separate services
 # - Workers are needed for: AI strategy generation, automated bot execution
+#
+# PYTHON VERSION:
+# - Using Python 3.11 for compatibility with pandas 2.1.4
+# - Python 3.13+ not yet supported by all dependencies
 #
 # For production use, upgrade services to Starter plans ($7/month per service)

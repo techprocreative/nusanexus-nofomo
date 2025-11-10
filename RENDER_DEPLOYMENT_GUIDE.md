@@ -116,8 +116,9 @@ Copy the output - this will be your `SECRET_KEY`.
 2. Connect repository
 3. Name: `nusafx-backend`
 4. Runtime: Python 3
-5. Build Command: `cd backend && pip install -r requirements.txt`
-6. Start Command: `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. **Python Version: 3.11** (required for pandas compatibility)
+6. Build Command: `cd backend && pip install -r requirements.txt`
+7. Start Command: `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
 
 **Frontend Service:**
 1. New → Web Service
@@ -219,6 +220,7 @@ REDIS_URL=<your-upstash-redis-url>
    - Repository: Connect your GitHub repo
    - Name: `nusafx-ai-engine`
    - Runtime: Python 3
+   - **Python Version: 3.11** (required)
    - Plan: **Starter** ($7/month)
    - Build Command: `cd ai_engine && pip install -r requirements.txt`
    - Start Command: `cd ai_engine && python ai_engine_core.py`
@@ -237,6 +239,7 @@ REDIS_URL=<your-upstash-redis-url>
    - Repository: Connect your GitHub repo
    - Name: `nusafx-bot-runner`
    - Runtime: Python 3
+   - **Python Version: 3.11** (required)
    - Plan: **Starter** ($7/month)
    - Build Command: `cd bot-runner && pip install -r requirements.txt`
    - Start Command: `cd bot-runner && python worker.py`
@@ -296,9 +299,11 @@ REDIS_URL=<your-upstash-redis-url>
 - Verify all dependencies install correctly
 
 **Backend:**
-- Check Python version (3.11)
+- **Python Version Error:** Ensure Python 3.11 is specified (pandas 2.1.4 not compatible with Python 3.13+)
+- Check Python version in service settings
 - Verify requirements.txt has no conflicts
 - Check for missing system dependencies
+- If pandas build fails: Python version is likely wrong
 
 ---
 
