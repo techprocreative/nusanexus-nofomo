@@ -2,32 +2,12 @@
 # This configuration deploys the complete platform to Render.com
 
 services:
-  # PostgreSQL Database
-  - type: pserv
-    name: nusafx-database
-    plan: starter
-    runtime: python
-    envVars:
-      - key: POSTGRES_DB
-        value: nusafxtrade
-      - key: POSTGRES_USER
-        value: nusafx_user
-      - key: POSTGRES_PASSWORD
-        value: '${POSTGRES_PASSWORD}'
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: nusafx-database
-          property: host
-      - key: POSTGRES_PORT
-        fromDatabase:
-          name: nusafx-database
-          property: port
-
   # Redis Cache
-  - type: pserv
+  - type: redis
     name: nusafx-redis
     plan: starter
-    runtime: python
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
 
   # Backend API Service
   - type: web
@@ -51,7 +31,7 @@ services:
         value: postgresql://nusafx_user:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/nusafxtrade
       - key: REDIS_URL
         fromService:
-          type: pserv
+          type: redis
           name: nusafx-redis
           property: connectionString
       - key: SUPABASE_URL
@@ -112,7 +92,7 @@ services:
         value: '${SUPABASE_SERVICE_ROLE_KEY}'
       - key: REDIS_URL
         fromService:
-          type: pserv
+          type: redis
           name: nusafx-redis
           property: connectionString
       - key: LOG_LEVEL
@@ -128,7 +108,7 @@ services:
     envVars:
       - key: REDIS_URL
         fromService:
-          type: pserv
+          type: redis
           name: nusafx-redis
           property: connectionString
       - key: SUPABASE_URL
