@@ -62,49 +62,54 @@ services:
         value: production
     healthCheckPath: /
 
-  # AI Engine Worker
-  - type: worker
-    name: nusafx-ai-engine
-    runtime: python
-    plan: free
-    buildCommand: cd ai_engine && pip install -r requirements.txt
-    startCommand: cd ai_engine && python ai_engine_core.py
-    envVars:
-      - key: OPENROUTER_API_KEY
-        value: '${OPENROUTER_API_KEY}'
-      - key: OPENROUTER_BASE_URL
-        value: 'https://openrouter.ai/api/v1'
-      - key: OPENROUTER_MODEL
-        value: 'anthropic/claude-3-sonnet'
-      - key: SUPABASE_URL
-        value: '${SUPABASE_URL}'
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        value: '${SUPABASE_SERVICE_ROLE_KEY}'
-      - key: REDIS_URL
-        value: '${REDIS_URL}'
-      - key: LOG_LEVEL
-        value: INFO
+  # ⚠️ WORKERS NOT AVAILABLE ON FREE TIER ⚠️
+  # Background workers require Render Starter plan ($7/month per worker)
+  # Uncomment and deploy these manually when ready to upgrade
+  # For now, MVP can function with just backend + frontend
+  
+  # # AI Engine Worker (REQUIRES PAID PLAN)
+  # - type: worker
+  #   name: nusafx-ai-engine
+  #   runtime: python
+  #   plan: starter  # Minimum plan required for workers
+  #   buildCommand: cd ai_engine && pip install -r requirements.txt
+  #   startCommand: cd ai_engine && python ai_engine_core.py
+  #   envVars:
+  #     - key: OPENROUTER_API_KEY
+  #       value: '${OPENROUTER_API_KEY}'
+  #     - key: OPENROUTER_BASE_URL
+  #       value: 'https://openrouter.ai/api/v1'
+  #     - key: OPENROUTER_MODEL
+  #       value: 'anthropic/claude-3-sonnet'
+  #     - key: SUPABASE_URL
+  #       value: '${SUPABASE_URL}'
+  #     - key: SUPABASE_SERVICE_ROLE_KEY
+  #       value: '${SUPABASE_SERVICE_ROLE_KEY}'
+  #     - key: REDIS_URL
+  #       value: '${REDIS_URL}'
+  #     - key: LOG_LEVEL
+  #       value: INFO
 
-  # Bot Runner Worker
-  - type: worker
-    name: nusafx-bot-runner
-    runtime: python
-    plan: free
-    buildCommand: cd bot-runner && pip install -r requirements.txt
-    startCommand: cd bot-runner && python worker.py
-    envVars:
-      - key: REDIS_URL
-        value: '${REDIS_URL}'
-      - key: SUPABASE_URL
-        value: '${SUPABASE_URL}'
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        value: '${SUPABASE_SERVICE_ROLE_KEY}'
-      - key: BINANCE_API_URL
-        value: 'https://api.binance.com'
-      - key: BYBIT_API_URL
-        value: 'https://api.bybit.com'
-      - key: LOG_LEVEL
-        value: INFO
+  # # Bot Runner Worker (REQUIRES PAID PLAN)
+  # - type: worker
+  #   name: nusafx-bot-runner
+  #   runtime: python
+  #   plan: starter  # Minimum plan required for workers
+  #   buildCommand: cd bot-runner && pip install -r requirements.txt
+  #   startCommand: cd bot-runner && python worker.py
+  #   envVars:
+  #     - key: REDIS_URL
+  #       value: '${REDIS_URL}'
+  #     - key: SUPABASE_URL
+  #       value: '${SUPABASE_URL}'
+  #     - key: SUPABASE_SERVICE_ROLE_KEY
+  #       value: '${SUPABASE_SERVICE_ROLE_KEY}'
+  #     - key: BINANCE_API_URL
+  #       value: 'https://api.binance.com'
+  #     - key: BYBIT_API_URL
+  #       value: 'https://api.bybit.com'
+  #     - key: LOG_LEVEL
+  #       value: INFO
 
 # IMPORTANT: Configure these environment variables in Render Dashboard:
 #
@@ -125,8 +130,15 @@ services:
 # - POSTGRES_PASSWORD: If using managed PostgreSQL (not needed for Supabase)
 #
 # FREE TIER NOTES:
-# - All services use FREE tier and will spin down after 15 minutes of inactivity
-# - First request after spin down takes ~30-50 seconds to wake up
+# - Backend and Frontend use FREE tier (750 hours/month each)
+# - Services spin down after 15 minutes of inactivity (~30-50s cold start)
 # - Database: Supabase (free tier)
 # - Redis: Upstash (free tier - 10,000 commands/day)
-# - For production use, upgrade to Starter plans ($7/month per service)
+# 
+# ⚠️ WORKER SERVICES NOT AVAILABLE ON FREE TIER:
+# - Background workers (AI Engine, Bot Runner) require Starter plan ($7/month each)
+# - MVP can function with just Backend + Frontend for testing/demo
+# - To enable workers: Uncomment them above and deploy manually as separate services
+# - Workers are needed for: AI strategy generation, automated bot execution
+#
+# For production use, upgrade services to Starter plans ($7/month per service)

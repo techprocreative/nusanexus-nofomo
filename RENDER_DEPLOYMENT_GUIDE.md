@@ -3,14 +3,17 @@
 ## 🎉 100% FREE Tier Deployment Available!
 
 This guide uses **completely FREE services** for MVP deployment:
-- ✅ Render.com (Free Web Services & Workers)
+- ✅ Render.com (Free Web Services - Backend & Frontend)
 - ✅ Upstash Redis (Free 10K commands/day)
 - ✅ Supabase (Free PostgreSQL database)
 - 💳 OpenRouter AI (Pay-per-use, ~$5 can last months for testing)
 
 **Total Infrastructure Cost: $0/month!** Perfect for MVP, testing, and small-scale deployments.
 
-**Note:** Free tier services spin down after 15 minutes of inactivity (~30-50s to wake up). Upgrade to paid tier for production use.
+**Important Limitations:**
+- ⚠️ **Background Workers NOT available on free tier** (AI Engine, Bot Runner require paid plan)
+- Free tier services spin down after 15 minutes of inactivity (~30-50s to wake up)
+- MVP functions with Backend + Frontend only (can add workers later for $7/month each)
 
 ---
 
@@ -124,8 +127,10 @@ Copy the output - this will be your `SECRET_KEY`.
 5. Build Command: `cd frontend && npm ci && npm run build`
 6. Start Command: `cd frontend && npm start`
 
-**Workers (Optional for MVP):**
-- Can be added later for bot execution and AI features
+**⚠️ Workers NOT included in free tier deployment:**
+- Background workers are NOT available on Render free tier
+- Requires Starter plan ($7/month per worker)
+- See "Step 9: Adding Workers (Optional Upgrade)" below for instructions
 
 **Note:** Redis is now external via Upstash (no need to deploy on Render)
 
@@ -164,16 +169,18 @@ NEXT_PUBLIC_API_URL=https://nusafx-backend.onrender.com/api/v1
 NODE_ENV=production
 ```
 
-For **Worker Services** (if deployed), add these:
+For **Worker Services** (⚠️ Requires Starter Plan - See Step 9):
+
+Workers are NOT included in free tier deployment. When you upgrade and deploy workers manually, use these environment variables:
 
 ```bash
-# AI Engine Worker
+# AI Engine Worker (Starter plan required)
 OPENROUTER_API_KEY=<your-openrouter-api-key>
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 REDIS_URL=<your-upstash-redis-url>
 
-# Bot Runner Worker
+# Bot Runner Worker (Starter plan required)
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 REDIS_URL=<your-upstash-redis-url>
@@ -198,7 +205,61 @@ REDIS_URL=<your-upstash-redis-url>
 2. Try to register a new account
 3. Check if login works
 4. Verify dashboard loads
-5. Test creating a bot (may not execute without workers)
+5. Test creating a bot (execution requires workers - see Step 9)
+
+### Step 9: Adding Workers (Optional Upgrade - $7/month each)
+
+**Important:** Background workers are NOT available on free tier. You need to upgrade to Starter plan.
+
+**When you're ready to enable AI features and bot execution:**
+
+1. Go to Render Dashboard → **New** → **Background Worker**
+
+2. **For AI Engine Worker:**
+   - Repository: Connect your GitHub repo
+   - Name: `nusafx-ai-engine`
+   - Runtime: Python 3
+   - Plan: **Starter** ($7/month)
+   - Build Command: `cd ai_engine && pip install -r requirements.txt`
+   - Start Command: `cd ai_engine && python ai_engine_core.py`
+   - Add environment variables:
+     ```
+     OPENROUTER_API_KEY=<your-key>
+     OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+     OPENROUTER_MODEL=anthropic/claude-3-sonnet
+     SUPABASE_URL=<your-supabase-url>
+     SUPABASE_SERVICE_ROLE_KEY=<your-key>
+     REDIS_URL=<your-upstash-redis-url>
+     LOG_LEVEL=INFO
+     ```
+
+3. **For Bot Runner Worker:**
+   - Repository: Connect your GitHub repo
+   - Name: `nusafx-bot-runner`
+   - Runtime: Python 3
+   - Plan: **Starter** ($7/month)
+   - Build Command: `cd bot-runner && pip install -r requirements.txt`
+   - Start Command: `cd bot-runner && python worker.py`
+   - Add environment variables:
+     ```
+     REDIS_URL=<your-upstash-redis-url>
+     SUPABASE_URL=<your-supabase-url>
+     SUPABASE_SERVICE_ROLE_KEY=<your-key>
+     BINANCE_API_URL=https://api.binance.com
+     BYBIT_API_URL=https://api.bybit.com
+     LOG_LEVEL=INFO
+     ```
+
+**What workers enable:**
+- ✅ AI Engine: Automatic strategy generation with AI
+- ✅ Bot Runner: Automated trade execution on exchanges
+- ✅ Background jobs: Continuous monitoring and execution
+
+**Without workers:**
+- ❌ No automated bot execution
+- ❌ No AI strategy generation
+- ✅ Can still manually create/view bots (UI works)
+- ✅ Can use platform for demo/testing
 
 ---
 
@@ -247,19 +308,20 @@ REDIS_URL=<your-upstash-redis-url>
 - **Render Services:**
   - Backend Web Service: **FREE** (750hrs/month, spins down after 15min idle)
   - Frontend Web Service: **FREE** (750hrs/month, spins down after 15min idle)
-  - AI Engine Worker: **FREE** (can be deployed when needed)
-  - Bot Runner Worker: **FREE** (can be deployed when needed)
+  - ⚠️ Workers NOT INCLUDED (require paid plan)
 - **Upstash Redis:** **FREE** (10,000 commands/day, 256MB storage)
 - **Supabase Database:** **FREE** (500MB database, 2GB bandwidth, 50K monthly active users)
-- **OpenRouter AI:** **Pay-as-you-go** (~$0.01-0.10 per AI request)
+- **OpenRouter AI:** **Pay-as-you-go** (~$0.01-0.10 per AI request, optional)
 
 **Total Infrastructure Cost: $0/month** (only pay for AI API usage!)
 
 ### Free Tier Limitations:
+- ⚠️ **Workers (AI Engine, Bot Runner) NOT available** - requires paid plan
 - Services spin down after 15 minutes of inactivity
 - ~30-50 seconds cold start time after spin down
 - Upstash Redis: 10K commands/day limit
-- Render: 750 hours/month per service (enough for always-on with limitations)
+- Render: 750 hours/month per service
+- Platform works for demo/testing, but no automated bot execution
 
 ### Paid Tier (Recommended for Production)
 - **Render Services:**
