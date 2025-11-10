@@ -294,9 +294,14 @@ REDIS_URL=<your-upstash-redis-url>
 ### Build Failures
 
 **Frontend:**
+- **Module not found errors:** 
+  - Go to service Settings → Clear build cache → Deploy latest commit
+  - Ensure tsconfig.json and next.config.js are in repo
+  - Check that all imported files exist in correct paths
 - Clear cache: Settings → Clear build cache
 - Check Node version (use 18.x)
 - Verify all dependencies install correctly
+- **Important:** After fixing build errors, ALWAYS clear cache before rebuilding
 
 **Backend:**
 - **Python Version Error:** Ensure Python 3.11 is specified (pandas 2.1.4 not compatible with Python 3.13+)
@@ -304,6 +309,13 @@ REDIS_URL=<your-upstash-redis-url>
 - Verify requirements.txt has no conflicts
 - Check for missing system dependencies
 - If pandas build fails: Python version is likely wrong
+
+**Cache Issues:**
+If builds keep failing with same error after fixes:
+1. Go to service in Render Dashboard
+2. Settings → Clear build cache
+3. Manual Deploy → Deploy latest commit
+4. Wait for fresh build (no cache)
 
 ---
 
