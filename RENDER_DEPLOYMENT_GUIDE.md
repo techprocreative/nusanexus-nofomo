@@ -317,6 +317,18 @@ If builds keep failing with same error after fixes:
 3. Manual Deploy → Deploy latest commit
 4. Wait for fresh build (no cache)
 
+**Persistent Module Resolution Errors:**
+If getting "Module not found: Can't resolve '@/lib/api/*'" errors:
+1. Verify in Dashboard that service is using `rootDirectory: frontend`
+2. Check environment variable `NODE_PATH` is set to `.`
+3. Verify Node version matches local (v18.x or v20.x)
+4. Check build logs for actual working directory
+5. Try deleting the service and recreating with Blueprint
+6. As last resort: manually create service (not Blueprint) and set:
+   - Root Directory: `frontend` (in Settings)
+   - Build Command: `npm ci && npm run build`
+   - Start Command: `npm start`
+
 ---
 
 ## 💰 Cost Estimate (Monthly)
