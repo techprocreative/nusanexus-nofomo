@@ -50,8 +50,9 @@ services:
     name: nusafx-frontend
     runtime: node
     plan: free
-    buildCommand: cd frontend && npm ci && npm run build
-    startCommand: cd frontend && npm start
+    rootDirectory: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: '${SUPABASE_URL}'
