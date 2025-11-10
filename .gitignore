@@ -29,6 +29,10 @@ venv/
 ENV/
 env/
 
+# IMPORTANT: Don't ignore frontend/lib/ - it contains source code
+!frontend/lib/
+!frontend/lib/**
+
 # Testing
 .pytest_cache/
 .coverage
