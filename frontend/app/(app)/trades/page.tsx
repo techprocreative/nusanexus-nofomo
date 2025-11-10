@@ -87,7 +87,7 @@ export default function TradesPage() {
     if (searchTerm) {
       filtered = filtered.filter(trade => 
         trade.pair.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        trade.bot_name.toLowerCase().includes(searchTerm.toLowerCase())
+        (trade.bot_name && trade.bot_name.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
 

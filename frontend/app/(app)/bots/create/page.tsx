@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Bot, Settings } from 'lucide-react'
+import { ArrowLeft, Save, Bot as BotIcon, Settings } from 'lucide-react'
 import { useAuth } from '@/components/providers/auth-provider'
 import { createBot } from '@/lib/api/bots'
 import { CreateBotForm, Bot } from '@/lib/types'
@@ -150,7 +150,7 @@ export default function CreateBotPage() {
         {/* Basic Information */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Bot className="h-5 w-5 text-blue-600 mr-2" />
+            <BotIcon className="h-5 w-5 text-blue-600 mr-2" />
             <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
           </div>
           
