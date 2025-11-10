@@ -8,11 +8,20 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': path.resolve(__dirname),
-    }
+  webpack: (config, { isServer }) => {
+    // Ensure alias is set correctly
+    config.resolve.alias['@'] = path.resolve(__dirname)
+    
+    // Add explicit extensions
+    config.resolve.extensions = [
+      '.tsx',
+      '.ts',
+      '.jsx',
+      '.js',
+      '.json',
+      ...config.resolve.extensions
+    ]
+    
     return config
   },
 }

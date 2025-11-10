@@ -54,6 +54,8 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
+      - key: NODE_PATH
+        value: .
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: '${SUPABASE_URL}'
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
